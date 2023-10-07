@@ -1,5 +1,12 @@
 {
   "name": "react-drag-selection",
+  "description": "A performant, lightweight library for drag to select in react",
+  "author": {
+    "email": "visiondaniels32@gmail.com",
+    "name": "Vision Onyeaku",
+    "url": "https://github.com/livingforjesus"
+  },
+  "repository": "https://github.com/livingforjesus/react-drag-selection",
   "version": "1.0.0",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
