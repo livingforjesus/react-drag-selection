@@ -8,7 +8,7 @@ interface UseDragSelectionProps {
     selectedItems: string[],
     setSelectedItems: Dispatch<SetStateAction<string[]>>,
   ) => void
-  selectionEnabled?: (boxInfo: SelectionBoxInfo) => boolean
+  selectionEnabled?: (boxInfo: SelectionBox) => boolean
   disableDragging?: boolean
 }
 
@@ -20,6 +20,7 @@ interface DragSelectionResponse {
 }
 
 export const SELECTABLE_ITEM_CLASS = 'drag-selectable-item'
+export const DISABLE_SELECTION_CLASS = 'disable-drag-selection'
 
 export default function useDragSelection({
   onSelectionChanged,
@@ -94,7 +95,39 @@ export default function useDragSelection({
         onSelectionChanged?.(selectionBox, newSelectedItems, setSelectedItems)
       },
       parentElement,
-      selectionEnabled,
+      selectionEnabled: (selectionBox) => {
+        const selectableElements = (parentElement || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
+        const pointInfo: SelectionBox = {
+          height: 0.01,
+          left: selectionBox.left,
+          top: selectionBox.top,
+          width: 0.01,
+        }
+
+        for (const item of Array.from(selectableElements)) {
+          const { left, top, width, height } = item.getBoundingClientRect()
+          const parentRect = parentElement?.getBoundingClientRect() || {
+            left: 0,
+            top: 0,
+          }
+          const itemPos = {
+            height,
+            left: left - parentRect.left + getScrollInfo().scrollX,
+            top: top - parentRect.top + getScrollInfo().scrollY,
+            width,
+          }
+
+          if (elementsIntersect(itemPos, pointInfo)) {
+            return false
+          }
+        }
+
+        if (selectionEnabled) {
+          return selectionEnabled(selectionBox)
+        }
+
+        return true
+      },
       setBoxInfo,
     },
   }

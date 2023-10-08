@@ -1,4 +1,4 @@
-import { DragSelection, SELECTABLE_ITEM_CLASS, useDragSelection } from 'react-drag-selection'
+import { DISABLE_SELECTION_CLASS, DragSelection, SELECTABLE_ITEM_CLASS, useDragSelection } from 'react-drag-selection'
 
 function App() {
   const { selectionProps, selectedItems } = useDragSelection({})
@@ -20,8 +20,9 @@ function App() {
       >
         {[...Array(100)].map((_, i) => (
           <div
-            className={SELECTABLE_ITEM_CLASS}
+            className={`${SELECTABLE_ITEM_CLASS} ${DISABLE_SELECTION_CLASS}`}
             data-selection-id={i}
+            key={i}
             style={{
               width: 100,
               height: 100,

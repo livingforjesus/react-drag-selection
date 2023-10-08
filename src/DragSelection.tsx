@@ -22,7 +22,7 @@ export interface DragSelectionProps {
   readonly color?: string
   readonly setBoxInfo: Dispatch<SetStateAction<SelectionBoxInfo>>
   readonly onSelectionChanged: (selectionBox: SelectionBox) => void
-  readonly selectionEnabled?: (boxInfo: SelectionBoxInfo) => boolean
+  readonly selectionEnabled?: (selectionBox: SelectionBox) => boolean
 }
 
 const getBoxMeta = (boxInfo: SelectionBoxInfo) => {
@@ -87,7 +87,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
             initialX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
             initialY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
           }
-          const canSelect = selectionEnabled ? selectionEnabled?.(newBoxInfo) : true
+          const canSelect = selectionEnabled ? selectionEnabled?.(getBoxMeta(newBoxInfo)) : true
 
           if (canSelect) {
             e.preventDefault()
