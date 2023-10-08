@@ -1,14 +1,4 @@
-import React, {
-  Dispatch,
-  FC,
-  memo,
-  MutableRefObject,
-  RefObject,
-  SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-} from 'react'
+import React, { Dispatch, FC, memo, MutableRefObject, SetStateAction, useCallback, useEffect, useMemo } from 'react'
 
 export interface SelectionBoxInfo {
   initialX: number
@@ -27,7 +17,7 @@ export interface SelectionBox {
 
 export interface DragSelectionProps {
   readonly boxInfo: SelectionBoxInfo
-  readonly selectionAreaRef: RefObject<HTMLElement>
+  readonly parentElement: HTMLElement | null
   readonly isMouseDown: MutableRefObject<boolean>
   readonly color?: string
   readonly setBoxInfo: Dispatch<SetStateAction<SelectionBoxInfo>>
@@ -48,18 +38,28 @@ const getBoxMeta = (boxInfo: SelectionBoxInfo) => {
 }
 
 export const DragSelection: FC<DragSelectionProps> = memo(
-  ({ boxInfo, color, isMouseDown, selectionAreaRef, setBoxInfo, onSelectionChanged, selectionEnabled }) => {
+  ({ boxInfo, color, isMouseDown, parentElement, setBoxInfo, onSelectionChanged, selectionEnabled }) => {
     const dragBoxData = useMemo(() => getBoxMeta(boxInfo), [boxInfo])
+    const getScrollInfo = useCallback(
+      () => ({
+        scrollX: parentElement ? 0 : window.scrollX,
+        scrollY: parentElement ? 0 : window.scrollY,
+      }),
+      [parentElement],
+    )
 
     const handleMouseMove = useCallback(
       (e: MouseEvent) => {
         if (isMouseDown.current) {
-          const parentComponentRect = (selectionAreaRef.current || document.body).getBoundingClientRect()
+          const parentComponentRect = parentElement?.getBoundingClientRect() || {
+            x: 0,
+            y: 0,
+          }
           setBoxInfo((currentBoxInfo) => {
             const newBoxInfo = {
               ...currentBoxInfo,
-              currentX: e.clientX - parentComponentRect.x + window.scrollX,
-              currentY: e.clientY - parentComponentRect.y + window.scrollY,
+              currentX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
+              currentY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
             }
             const data = getBoxMeta(newBoxInfo)
 
@@ -70,19 +70,22 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           })
         }
       },
-      [isMouseDown, selectionAreaRef, setBoxInfo],
+      [isMouseDown, getScrollInfo, parentElement, setBoxInfo],
     )
 
     const handleMouseDown = useCallback(
       (e: MouseEvent) => {
         setBoxInfo((currentBoxInfo) => {
-          const parentComponentRect = (selectionAreaRef.current || document.body).getBoundingClientRect()
+          const parentComponentRect = parentElement?.getBoundingClientRect() || {
+            x: 0,
+            y: 0,
+          }
           const newBoxInfo = {
             ...currentBoxInfo,
-            currentX: e.clientX - parentComponentRect.x + window.scrollX,
-            currentY: e.clientY - parentComponentRect.y + window.scrollY,
-            initialX: e.clientX - parentComponentRect.x + window.scrollX,
-            initialY: e.clientY - parentComponentRect.y + window.scrollY,
+            currentX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
+            currentY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
+            initialX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
+            initialY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
           }
           const canSelect = selectionEnabled ? selectionEnabled?.(newBoxInfo) : true
 
@@ -96,7 +99,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           return currentBoxInfo
         })
       },
-      [isMouseDown, selectionAreaRef, selectionEnabled, setBoxInfo],
+      [getScrollInfo, isMouseDown, parentElement, selectionEnabled, setBoxInfo],
     )
 
     const handleMouseUp = useCallback(() => {
@@ -110,7 +113,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
     }, [isMouseDown, setBoxInfo])
 
     useEffect(() => {
-      const wrapperElement = (selectionAreaRef.current || window) as HTMLElement
+      const wrapperElement = (parentElement || window) as HTMLElement
 
       wrapperElement.addEventListener('pointermove', handleMouseMove)
       wrapperElement.addEventListener('pointerdown', handleMouseDown)
@@ -121,7 +124,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
         wrapperElement.removeEventListener('pointerdown', handleMouseDown)
         window.removeEventListener('pointerup', handleMouseUp)
       }
-    }, [boxInfo, handleMouseDown, handleMouseMove, handleMouseUp, selectionAreaRef, selectionEnabled, setBoxInfo])
+    }, [boxInfo, handleMouseDown, handleMouseMove, handleMouseUp, parentElement, selectionEnabled, setBoxInfo])
 
     useEffect(() => {
       if (boxInfo.isDragging) {
