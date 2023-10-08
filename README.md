@@ -12,6 +12,8 @@ $ yarn add react-drag-selection
 
 ## Usage
 
+[View Demo Here](https://codesandbox.io/s/friendly-kapitsa-w3x2s7?file=/src/App.js)
+
 ```tsx
 import { DragSelection, useDragSelection } from 'react-drag-selection'
 
