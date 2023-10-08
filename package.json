@@ -7,7 +7,7 @@
     "url": "https://github.com/livingforjesus"
   },
   "repository": "https://github.com/livingforjesus/react-drag-selection",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
