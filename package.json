@@ -7,12 +7,13 @@
     "url": "https://github.com/livingforjesus"
   },
   "repository": "https://github.com/livingforjesus/react-drag-selection",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
   "license": "MIT",
   "devDependencies": {
+    "@types/lodash": "^4.14.201",
     "@types/react": "^18.2.25",
     "@types/react-dom": "^18.2.11",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
@@ -26,6 +27,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "lodash": "^4.17.21",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tslib": "^2.6.2"

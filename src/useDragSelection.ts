@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 
 import { DragSelectionProps, SelectionBox, SelectionBoxInfo, elementsIntersect } from './DragSelection'
+import _ from 'lodash'
 
 interface UseDragSelectionProps {
   onSelectionChanged?: (
@@ -8,6 +9,7 @@ interface UseDragSelectionProps {
     selectedItems: string[],
     setSelectedItems: Dispatch<SetStateAction<string[]>>,
   ) => void
+  onSelectedItemsChanged?: (selectedItems: string[], setSelectedItems: Dispatch<SetStateAction<string[]>>) => void
   selectionEnabled?: (boxInfo: SelectionBox) => boolean
   disableDragging?: boolean
 }
@@ -25,6 +27,7 @@ export const DISABLE_SELECTION_CLASS = 'disable-drag-selection'
 export default function useDragSelection({
   onSelectionChanged,
   selectionEnabled,
+  onSelectedItemsChanged,
   disableDragging,
 }: UseDragSelectionProps): DragSelectionResponse {
   const [selectedItems, setSelectedItems] = useState<string[]>([])
@@ -91,7 +94,10 @@ export default function useDragSelection({
           }
         })
 
-        setSelectedItems(newSelectedItems)
+        if (!_.isEqual(newSelectedItems, selectedItems)) {
+          setSelectedItems(newSelectedItems)
+          onSelectedItemsChanged?.(newSelectedItems, setSelectedItems)
+        }
         onSelectionChanged?.(selectionBox, newSelectedItems, setSelectedItems)
       },
       parentElement,
