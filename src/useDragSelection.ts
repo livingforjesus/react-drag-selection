@@ -1,6 +1,6 @@
-import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
+import { Dispatch, SetStateAction, useCallback, useRef, useState } from 'react'
 
-import { DragSelectionProps, SelectionBox, SelectionBoxInfo, elementsIntersect } from './DragSelection'
+import { DragSelectionProps, SelectionBox, elementsIntersect } from './DragSelection'
 import _ from 'lodash'
 
 interface UseDragSelectionProps {
@@ -28,35 +28,31 @@ export default function useDragSelection({
   onSelectionChanged,
   selectionEnabled,
   onSelectedItemsChanged,
-  disableDragging,
 }: UseDragSelectionProps): DragSelectionResponse {
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [boxInfo, setBoxInfo] = useState<SelectionBoxInfo>({
-    currentX: -1,
-    currentY: -1,
-    initialX: 0,
-    initialY: 0,
-    isDragging: false,
-  })
-  const [parentElement, setParentElement] = useState<HTMLDivElement | null>(null)
+  const [isDragging, setIsDragging] = useState<boolean>(false)
+  const parentElement = useRef<HTMLDivElement | null>(null)
   const isMouseDown = useRef<boolean>(false)
   const getScrollInfo = useCallback(
     () => ({
-      scrollX: parentElement ? 0 : window.scrollX,
-      scrollY: parentElement ? 0 : window.scrollY,
+      scrollX: parentElement.current ? 0 : window.scrollX,
+      scrollY: parentElement.current ? 0 : window.scrollY,
     }),
-    [parentElement],
+    [],
   )
   const selectionAreaRef = useCallback((node: HTMLDivElement) => {
-    setParentElement(node)
+    parentElement.current = node
+    if (node && node.style) {
+      node.style.position = 'relative'
+    }
   }, [])
   const onSelectionChangedComponent = useCallback(
     (selectionBox: SelectionBox) => {
       const newSelectedItems: string[] = []
-      const selectableElements = (parentElement || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
+      const selectableElements = (parentElement.current || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
       selectableElements.forEach((item) => {
         const { left, top, width, height } = item.getBoundingClientRect()
-        const parentRect = parentElement?.getBoundingClientRect() || {
+        const parentRect = parentElement.current?.getBoundingClientRect() || {
           left: 0,
           top: 0,
         }
@@ -85,7 +81,7 @@ export default function useDragSelection({
   )
   const selectionEnabledComponent = useCallback(
     (selectionBox: SelectionBox) => {
-      const selectableElements = (parentElement || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
+      const selectableElements = (parentElement.current || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
       const pointInfo: SelectionBox = {
         height: 0.01,
         left: selectionBox.left,
@@ -95,7 +91,7 @@ export default function useDragSelection({
 
       for (const item of Array.from(selectableElements)) {
         const { left, top, width, height } = item.getBoundingClientRect()
-        const parentRect = parentElement?.getBoundingClientRect() || {
+        const parentRect = parentElement.current?.getBoundingClientRect() || {
           left: 0,
           top: 0,
         }
@@ -120,29 +116,16 @@ export default function useDragSelection({
     [getScrollInfo, parentElement, selectionEnabled],
   )
 
-  useEffect(() => {
-    if (disableDragging) {
-      setBoxInfo((prevInfo) => ({ ...prevInfo, isDragging: false }))
-    }
-  }, [disableDragging])
-
-  useEffect(() => {
-    if (parentElement) {
-      parentElement.style.position = 'relative'
-    }
-  }, [parentElement])
-
   return {
-    isSelecting: boxInfo.isDragging,
+    isSelecting: isDragging,
     selectedItems,
     selectionAreaRef,
     selectionProps: {
-      boxInfo,
       isMouseDown,
       onSelectionChanged: onSelectionChangedComponent,
-      parentElement,
+      parentElement: parentElement.current,
       selectionEnabled: selectionEnabledComponent,
-      setBoxInfo,
+      setIsDragging,
     },
   }
 }
