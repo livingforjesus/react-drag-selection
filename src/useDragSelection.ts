@@ -50,12 +50,81 @@ export default function useDragSelection({
   const selectionAreaRef = useCallback((node: HTMLDivElement) => {
     setParentElement(node)
   }, [])
+  const onSelectionChangedComponent = useCallback(
+    (selectionBox: SelectionBox) => {
+      const newSelectedItems: string[] = []
+      const selectableElements = (parentElement || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
+      selectableElements.forEach((item) => {
+        const { left, top, width, height } = item.getBoundingClientRect()
+        const parentRect = parentElement?.getBoundingClientRect() || {
+          left: 0,
+          top: 0,
+        }
+        const itemPos = {
+          height,
+          left: left - parentRect.left + getScrollInfo().scrollX,
+          top: top - parentRect.top + getScrollInfo().scrollY,
+          width,
+        }
+
+        if (elementsIntersect(itemPos, selectionBox)) {
+          const selectedId = item.getAttribute('data-selection-id')
+          if (selectedId) {
+            newSelectedItems.push(selectedId)
+          }
+        }
+      })
+
+      if (!_.isEqual(newSelectedItems, selectedItems)) {
+        setSelectedItems(newSelectedItems)
+        onSelectedItemsChanged?.(newSelectedItems, setSelectedItems)
+      }
+      onSelectionChanged?.(selectionBox, newSelectedItems, setSelectedItems)
+    },
+    [getScrollInfo, onSelectedItemsChanged, onSelectionChanged, parentElement, selectedItems],
+  )
+  const selectionEnabledComponent = useCallback(
+    (selectionBox: SelectionBox) => {
+      const selectableElements = (parentElement || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
+      const pointInfo: SelectionBox = {
+        height: 0.01,
+        left: selectionBox.left,
+        top: selectionBox.top,
+        width: 0.01,
+      }
+
+      for (const item of Array.from(selectableElements)) {
+        const { left, top, width, height } = item.getBoundingClientRect()
+        const parentRect = parentElement?.getBoundingClientRect() || {
+          left: 0,
+          top: 0,
+        }
+        const itemPos = {
+          height,
+          left: left - parentRect.left + getScrollInfo().scrollX,
+          top: top - parentRect.top + getScrollInfo().scrollY,
+          width,
+        }
+
+        if (elementsIntersect(itemPos, pointInfo)) {
+          return false
+        }
+      }
+
+      if (selectionEnabled) {
+        return selectionEnabled(selectionBox)
+      }
+
+      return true
+    },
+    [getScrollInfo, parentElement, selectionEnabled],
+  )
 
   useEffect(() => {
     if (disableDragging) {
-      setBoxInfo({ ...boxInfo, isDragging: false })
+      setBoxInfo((prevInfo) => ({ ...prevInfo, isDragging: false }))
     }
-  }, [boxInfo, disableDragging])
+  }, [disableDragging])
 
   useEffect(() => {
     if (parentElement) {
@@ -70,70 +139,9 @@ export default function useDragSelection({
     selectionProps: {
       boxInfo,
       isMouseDown,
-      onSelectionChanged: (selectionBox) => {
-        const newSelectedItems: string[] = []
-        const selectableElements = (parentElement || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
-        selectableElements.forEach((item) => {
-          const { left, top, width, height } = item.getBoundingClientRect()
-          const parentRect = parentElement?.getBoundingClientRect() || {
-            left: 0,
-            top: 0,
-          }
-          const itemPos = {
-            height,
-            left: left - parentRect.left + getScrollInfo().scrollX,
-            top: top - parentRect.top + getScrollInfo().scrollY,
-            width,
-          }
-
-          if (elementsIntersect(itemPos, selectionBox)) {
-            const selectedId = item.getAttribute('data-selection-id')
-            if (selectedId) {
-              newSelectedItems.push(selectedId)
-            }
-          }
-        })
-
-        if (!_.isEqual(newSelectedItems, selectedItems)) {
-          setSelectedItems(newSelectedItems)
-          onSelectedItemsChanged?.(newSelectedItems, setSelectedItems)
-        }
-        onSelectionChanged?.(selectionBox, newSelectedItems, setSelectedItems)
-      },
+      onSelectionChanged: onSelectionChangedComponent,
       parentElement,
-      selectionEnabled: (selectionBox) => {
-        const selectableElements = (parentElement || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
-        const pointInfo: SelectionBox = {
-          height: 0.01,
-          left: selectionBox.left,
-          top: selectionBox.top,
-          width: 0.01,
-        }
-
-        for (const item of Array.from(selectableElements)) {
-          const { left, top, width, height } = item.getBoundingClientRect()
-          const parentRect = parentElement?.getBoundingClientRect() || {
-            left: 0,
-            top: 0,
-          }
-          const itemPos = {
-            height,
-            left: left - parentRect.left + getScrollInfo().scrollX,
-            top: top - parentRect.top + getScrollInfo().scrollY,
-            width,
-          }
-
-          if (elementsIntersect(itemPos, pointInfo)) {
-            return false
-          }
-        }
-
-        if (selectionEnabled) {
-          return selectionEnabled(selectionBox)
-        }
-
-        return true
-      },
+      selectionEnabled: selectionEnabledComponent,
       setBoxInfo,
     },
   }
