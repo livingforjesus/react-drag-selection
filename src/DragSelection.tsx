@@ -118,7 +118,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
 
     useEffect(() => {
       if (boxInfo.isDragging !== isDragging) setIsDragging(boxInfo.isDragging)
-    }, [boxInfo, setIsDragging])
+    }, [boxInfo, isDragging, setIsDragging])
 
     useEffect(() => {
       setScrollInfo({
@@ -181,15 +181,22 @@ export const DragSelection: FC<DragSelectionProps> = memo(
       [isMouseDown, parentElement, scrollInfo, selectionEnabledComponent],
     )
 
-    const handleMouseUp = useCallback(() => {
-      isMouseDown.current = false
-      setBoxInfo((currentBoxInfo) => ({
-        ...currentBoxInfo,
-        initialX: -1,
-        initialY: -1,
-        isDragging: false,
-      }))
-    }, [isMouseDown, setBoxInfo])
+    const handleMouseUp = useCallback(
+      (e: PointerEvent) => {
+        if (boxInfo.isDragging) {
+          e.stopImmediatePropagation()
+        }
+
+        isMouseDown.current = false
+        setBoxInfo((currentBoxInfo) => ({
+          ...currentBoxInfo,
+          initialX: -1,
+          initialY: -1,
+          isDragging: false,
+        }))
+      },
+      [boxInfo.isDragging, isMouseDown],
+    )
 
     useEffect(() => {
       const wrapperElement = (parentElement || window) as HTMLElement
