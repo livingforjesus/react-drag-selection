@@ -1,3 +1,4 @@
+import _ from 'lodash'
 import React, {
   Dispatch,
   FC,
@@ -9,6 +10,8 @@ import React, {
   useMemo,
   useState,
 } from 'react'
+import elementsIntersect from './elementsIntersect'
+import { DISABLE_SELECTION_CLASS, SELECTABLE_ITEM_CLASS } from './useDragSelection'
 
 export interface SelectionBoxInfo {
   initialX: number
@@ -29,8 +32,16 @@ export interface DragSelectionProps {
   readonly parentElement: HTMLElement | null
   readonly isMouseDown: MutableRefObject<boolean>
   readonly color?: string
+  selectedItems: string[]
+  isDragging: boolean
+  setSelectedItems: Dispatch<SetStateAction<string[]>>
   setIsDragging: Dispatch<SetStateAction<boolean>>
-  readonly onSelectionChanged: (selectionBox: SelectionBox) => void
+  readonly onSelectionChanged?: (
+    selectionBox: SelectionBox,
+    selectedItems: string[],
+    setSelectedItems: Dispatch<SetStateAction<string[]>>,
+  ) => void
+  onSelectedItemsChanged?: (selectedItems: string[], setSelectedItems: Dispatch<SetStateAction<string[]>>) => void
   readonly selectionEnabled?: (selectionBox: SelectionBox) => boolean
 }
 
@@ -47,7 +58,19 @@ const getBoxMeta = (boxInfo: SelectionBoxInfo) => {
 }
 
 export const DragSelection: FC<DragSelectionProps> = memo(
-  ({ color, isMouseDown, parentElement, setIsDragging, onSelectionChanged, selectionEnabled }) => {
+  ({
+    isDragging,
+    color,
+    selectedItems,
+    setSelectedItems,
+    isMouseDown,
+    parentElement,
+    setIsDragging,
+    onSelectedItemsChanged,
+    onSelectionChanged,
+    selectionEnabled,
+  }) => {
+    const [scrollInfo, setScrollInfo] = useState<{ scrollX: number; scrollY: number }>({ scrollX: 0, scrollY: 0 })
     const [boxInfo, setBoxInfo] = useState<SelectionBoxInfo>({
       currentX: -1,
       currentY: -1,
@@ -56,17 +79,53 @@ export const DragSelection: FC<DragSelectionProps> = memo(
       isDragging: false,
     })
     const dragBoxData = useMemo(() => getBoxMeta(boxInfo), [boxInfo])
-    const getScrollInfo = useCallback(
-      () => ({
-        scrollX: parentElement ? 0 : window.scrollX,
-        scrollY: parentElement ? 0 : window.scrollY,
-      }),
-      [],
+    const selectionEnabledComponent = useCallback(
+      (selectionBox: SelectionBox) => {
+        const selectableElements = (parentElement || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
+        const pointInfo: SelectionBox = {
+          height: 0.01,
+          left: selectionBox.left,
+          top: selectionBox.top,
+          width: 0.01,
+        }
+
+        for (const item of Array.from(selectableElements)) {
+          const { left, top, width, height } = item.getBoundingClientRect()
+          const parentRect = parentElement?.getBoundingClientRect() || {
+            left: 0,
+            top: 0,
+          }
+          const itemPos = {
+            height,
+            left: left - parentRect.left + scrollInfo.scrollX,
+            top: top - parentRect.top + scrollInfo.scrollY,
+            width,
+          }
+
+          if (elementsIntersect(itemPos, pointInfo)) {
+            return false
+          }
+        }
+
+        if (selectionEnabled) {
+          return selectionEnabled(selectionBox)
+        }
+
+        return true
+      },
+      [parentElement, selectionEnabled, scrollInfo],
     )
 
     useEffect(() => {
-      setIsDragging(boxInfo.isDragging)
+      if (boxInfo.isDragging !== isDragging) setIsDragging(boxInfo.isDragging)
     }, [boxInfo, setIsDragging])
+
+    useEffect(() => {
+      setScrollInfo({
+        scrollX: parentElement ? 0 : window.scrollX,
+        scrollY: parentElement ? 0 : window.scrollY,
+      })
+    }, [parentElement])
 
     const handleMouseMove = useCallback(
       (e: MouseEvent) => {
@@ -78,8 +137,8 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           setBoxInfo((currentBoxInfo) => {
             const newBoxInfo = {
               ...currentBoxInfo,
-              currentX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
-              currentY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
+              currentX: e.clientX - parentComponentRect.x + scrollInfo.scrollX,
+              currentY: e.clientY - parentComponentRect.y + scrollInfo.scrollY,
             }
             const data = getBoxMeta(newBoxInfo)
 
@@ -90,7 +149,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           })
         }
       },
-      [isMouseDown, getScrollInfo, setBoxInfo],
+      [isMouseDown, parentElement, scrollInfo],
     )
 
     const handleMouseDown = useCallback(
@@ -102,12 +161,12 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           }
           const newBoxInfo = {
             ...currentBoxInfo,
-            currentX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
-            currentY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
-            initialX: e.clientX - parentComponentRect.x + getScrollInfo().scrollX,
-            initialY: e.clientY - parentComponentRect.y + getScrollInfo().scrollY,
+            currentX: e.clientX - parentComponentRect.x + scrollInfo.scrollX,
+            currentY: e.clientY - parentComponentRect.y + scrollInfo.scrollY,
+            initialX: e.clientX - parentComponentRect.x + scrollInfo.scrollX,
+            initialY: e.clientY - parentComponentRect.y + scrollInfo.scrollY,
           }
-          const canSelect = selectionEnabled ? selectionEnabled?.(getBoxMeta(newBoxInfo)) : true
+          const canSelect = selectionEnabledComponent(getBoxMeta(newBoxInfo))
 
           if (canSelect) {
             e.preventDefault()
@@ -119,7 +178,7 @@ export const DragSelection: FC<DragSelectionProps> = memo(
           return currentBoxInfo
         })
       },
-      [getScrollInfo, isMouseDown, selectionEnabled, setBoxInfo],
+      [isMouseDown, parentElement, scrollInfo, selectionEnabledComponent],
     )
 
     const handleMouseUp = useCallback(() => {
@@ -144,13 +203,49 @@ export const DragSelection: FC<DragSelectionProps> = memo(
         wrapperElement.removeEventListener('pointerdown', handleMouseDown)
         window.removeEventListener('pointerup', handleMouseUp)
       }
-    }, [boxInfo, handleMouseDown, handleMouseMove, handleMouseUp, selectionEnabled, setBoxInfo])
+    }, [boxInfo, handleMouseDown, handleMouseMove, handleMouseUp, parentElement, selectionEnabled, setBoxInfo])
 
     useEffect(() => {
       if (boxInfo.isDragging) {
-        onSelectionChanged(dragBoxData)
+        const newSelectedItems: string[] = []
+        const selectableElements = (parentElement || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
+        selectableElements.forEach((item) => {
+          const { left, top, width, height } = item.getBoundingClientRect()
+          const parentRect = parentElement?.getBoundingClientRect() || {
+            left: 0,
+            top: 0,
+          }
+          const itemPos = {
+            height,
+            left: left - parentRect.left + scrollInfo.scrollX,
+            top: top - parentRect.top + scrollInfo.scrollY,
+            width,
+          }
+
+          if (elementsIntersect(itemPos, dragBoxData)) {
+            const selectedId = item.getAttribute('data-selection-id')
+            if (selectedId) {
+              newSelectedItems.push(selectedId)
+            }
+          }
+        })
+
+        if (!_.isEqual(newSelectedItems, selectedItems)) {
+          setSelectedItems(newSelectedItems)
+          onSelectedItemsChanged?.(newSelectedItems, setSelectedItems)
+        }
+        onSelectionChanged?.(dragBoxData, newSelectedItems, setSelectedItems)
       }
-    }, [onSelectionChanged, boxInfo, dragBoxData])
+    }, [
+      onSelectionChanged,
+      boxInfo,
+      dragBoxData,
+      parentElement,
+      selectedItems,
+      setSelectedItems,
+      scrollInfo,
+      onSelectedItemsChanged,
+    ])
 
     return boxInfo.isDragging ? (
       <div

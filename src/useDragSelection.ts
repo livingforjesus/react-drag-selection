@@ -1,7 +1,6 @@
 import { Dispatch, SetStateAction, useCallback, useRef, useState } from 'react'
 
-import { DragSelectionProps, SelectionBox, elementsIntersect } from './DragSelection'
-import _ from 'lodash'
+import { DragSelectionProps, SelectionBox } from './DragSelection'
 
 interface UseDragSelectionProps {
   onSelectionChanged?: (
@@ -31,89 +30,17 @@ export default function useDragSelection({
 }: UseDragSelectionProps): DragSelectionResponse {
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState<boolean>(false)
-  const parentElement = useRef<HTMLDivElement | null>(null)
+  const [parentElement, setParentElement] = useState<HTMLDivElement | null>(null)
   const isMouseDown = useRef<boolean>(false)
-  const getScrollInfo = useCallback(
-    () => ({
-      scrollX: parentElement.current ? 0 : window.scrollX,
-      scrollY: parentElement.current ? 0 : window.scrollY,
-    }),
-    [],
-  )
-  const selectionAreaRef = useCallback((node: HTMLDivElement) => {
-    parentElement.current = node
-    if (node && node.style) {
-      node.style.position = 'relative'
-    }
-  }, [])
-  const onSelectionChangedComponent = useCallback(
-    (selectionBox: SelectionBox) => {
-      const newSelectedItems: string[] = []
-      const selectableElements = (parentElement.current || document).querySelectorAll(`.${SELECTABLE_ITEM_CLASS}`)
-      selectableElements.forEach((item) => {
-        const { left, top, width, height } = item.getBoundingClientRect()
-        const parentRect = parentElement.current?.getBoundingClientRect() || {
-          left: 0,
-          top: 0,
-        }
-        const itemPos = {
-          height,
-          left: left - parentRect.left + getScrollInfo().scrollX,
-          top: top - parentRect.top + getScrollInfo().scrollY,
-          width,
-        }
 
-        if (elementsIntersect(itemPos, selectionBox)) {
-          const selectedId = item.getAttribute('data-selection-id')
-          if (selectedId) {
-            newSelectedItems.push(selectedId)
-          }
-        }
-      })
-
-      if (!_.isEqual(newSelectedItems, selectedItems)) {
-        setSelectedItems(newSelectedItems)
-        onSelectedItemsChanged?.(newSelectedItems, setSelectedItems)
+  const selectionAreaRef = useCallback(
+    (node: HTMLDivElement) => {
+      setParentElement(node)
+      if (node && node.style) {
+        node.style.position = 'relative'
       }
-      onSelectionChanged?.(selectionBox, newSelectedItems, setSelectedItems)
     },
-    [getScrollInfo, onSelectedItemsChanged, onSelectionChanged, parentElement, selectedItems],
-  )
-  const selectionEnabledComponent = useCallback(
-    (selectionBox: SelectionBox) => {
-      const selectableElements = (parentElement.current || document).querySelectorAll(`.${DISABLE_SELECTION_CLASS}`)
-      const pointInfo: SelectionBox = {
-        height: 0.01,
-        left: selectionBox.left,
-        top: selectionBox.top,
-        width: 0.01,
-      }
-
-      for (const item of Array.from(selectableElements)) {
-        const { left, top, width, height } = item.getBoundingClientRect()
-        const parentRect = parentElement.current?.getBoundingClientRect() || {
-          left: 0,
-          top: 0,
-        }
-        const itemPos = {
-          height,
-          left: left - parentRect.left + getScrollInfo().scrollX,
-          top: top - parentRect.top + getScrollInfo().scrollY,
-          width,
-        }
-
-        if (elementsIntersect(itemPos, pointInfo)) {
-          return false
-        }
-      }
-
-      if (selectionEnabled) {
-        return selectionEnabled(selectionBox)
-      }
-
-      return true
-    },
-    [getScrollInfo, parentElement, selectionEnabled],
+    [setParentElement],
   )
 
   return {
@@ -121,10 +48,14 @@ export default function useDragSelection({
     selectedItems,
     selectionAreaRef,
     selectionProps: {
+      isDragging,
       isMouseDown,
-      onSelectionChanged: onSelectionChangedComponent,
-      parentElement: parentElement.current,
-      selectionEnabled: selectionEnabledComponent,
+      onSelectionChanged,
+      onSelectedItemsChanged,
+      selectedItems,
+      setSelectedItems,
+      parentElement,
+      selectionEnabled,
       setIsDragging,
     },
   }

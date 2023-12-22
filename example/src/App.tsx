@@ -33,6 +33,8 @@ function App() {
       ref={selectionAreaRef}
       style={{
         width: 900,
+        marginTop: 100,
+        marginLeft: 100,
       }}
     >
       <DragSelection {...selectionProps} />
